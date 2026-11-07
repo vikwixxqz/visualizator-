@@ -889,23 +889,166 @@ class BSTStructure(BaseStructure):
         self.add_step(f"Удаление завершено. Высота дерева: {self.height()}")
         return True
 
-    def inorder(self):
-        """Симметричный обход (левое — узел — правое).
-        У BST он выдаёт ключи в порядке возрастания. O(n)."""
+    # ------------------------------------------------------------------
+    # Обходы дерева
+    # ------------------------------------------------------------------
+    # Три «глубинных» обхода отличаются только тем, КОГДА посещается узел
+    # относительно своих поддеревьев:
+    #   прямой (pre-order):        узел → левое → правое
+    #   симметричный (in-order):   левое → узел → правое
+    #   обратный (post-order):     левое → правое → узел
+    # Поэтому они реализованы одной рекурсивной функцией _traverse
+    # с параметром order. Каждый узел посещается один раз — O(n).
+    TRAVERSAL_NAMES = {
+        "pre": "Прямой обход (узел → левое → правое)",
+        "in": "Симметричный обход (левое → узел → правое)",
+        "post": "Обратный обход (левое → правое → узел)",
+    }
+
+    def traverse(self, order):
+        """Выполнить обход: order = "pre", "in" или "post"."""
+        if self.root is None:
+            raise StructureError("Дерево пустое — обходить нечего.")
         self.start_operation()
         result = []
         marks = {}
-        self._inorder(self.root, result, marks)
+        self.add_step(self.TRAVERSAL_NAMES[order])
+        self._traverse(self.root, order, result, marks)
         self.add_step("Обход завершён: " + ", ".join(map(str, result)), dict(marks))
         return result
 
-    def _inorder(self, node, result, marks):
+    def inorder(self):
+        """Симметричный обход. У BST он выдаёт ключи по возрастанию."""
+        return self.traverse("in")
+
+    def _traverse(self, node, order, result, marks):
         if node is None:
             return
-        self._inorder(node.left, result, marks)
+        if order == "pre":
+            self._visit(node, result, marks)
+        self._traverse(node.left, order, result, marks)
+        if order == "in":
+            self._visit(node, result, marks)
+        self._traverse(node.right, order, result, marks)
+        if order == "post":
+            self._visit(node, result, marks)
+
+    def _visit(self, node, result, marks):
+        """Посещение узла: добавляем ключ в результат и сохраняем шаг."""
         result.append(node.key)
         self.ops += 1
         marks[node.key] = CURRENT
         self.add_step(f"Посещаем {node.key}. Результат: {', '.join(map(str, result))}", dict(marks))
         marks[node.key] = VISITED
-        self._inorder(node.right, result, marks)
+
+    def level_order(self):
+        """Обход в ширину (по уровням): сначала корень, затем все узлы
+        глубины 1 слева направо, затем глубины 2 и т.д.
+        Используется очередь, как в BFS для графа. O(n)."""
+        if self.root is None:
+            raise StructureError("Дерево пустое — обходить нечего.")
+        self.start_operation()
+        result = []
+        marks = {}
+        queue = deque([self.root])
+        self.add_step(f"Кладём корень {self.root.key} в очередь")
+        while queue:
+            node = queue.popleft()
+            result.append(node.key)
+            self.ops += 1
+            marks[node.key] = CURRENT
+            # потомков ставим в конец очереди: они будут обработаны
+            # только после всех узлов текущего уровня
+            for child in (node.left, node.right):
+                if child is not None:
+                    queue.append(child)
+                    marks[child.key] = NEW
+            waiting = ", ".join(str(n.key) for n in queue) or "пусто"
+            self.add_step(f"Извлекаем {node.key}, его потомки — в очередь. Очередь: [{waiting}]",
+                          dict(marks))
+            marks[node.key] = VISITED
+        self.add_step("Обход по уровням завершён: " + ", ".join(map(str, result)), dict(marks))
+        return result
+
+    # ------------------------------------------------------------------
+    # Характеристики дерева
+    # ------------------------------------------------------------------
+    def find_min(self):
+        """Минимальный ключ — самый левый узел: идём влево, пока можно. O(h)."""
+        return self._find_extreme("left")
+
+    def find_max(self):
+        """Максимальный ключ — самый правый узел: идём вправо, пока можно. O(h)."""
+        return self._find_extreme("right")
+
+    def _find_extreme(self, side):
+        if self.root is None:
+            raise StructureError("Дерево пустое.")
+        self.start_operation()
+        word = "влево" if side == "left" else "вправо"
+        node = self.root
+        path = {}
+        while True:
+            self.ops += 1
+            # getattr(node, "left") — то же самое, что node.left
+            nxt = getattr(node, side)
+            if nxt is None:
+                break
+            path[node.key] = CURRENT
+            self.add_step(f"У узла {node.key} есть потомок {word} → переходим к {nxt.key}", dict(path))
+            node = nxt
+        path[node.key] = FOUND
+        kind = "Минимум" if side == "left" else "Максимум"
+        self.add_step(f"Идти {word} больше некуда. {kind} = {node.key}", dict(path))
+        return node.key
+
+    def compute_height(self):
+        """Пошаговое вычисление высоты: высота узла =
+        1 + max(высота левого поддерева, высота правого поддерева),
+        высота пустого поддерева = -1. Каждый узел обрабатывается
+        один раз (обратный обход) — O(n)."""
+        if self.root is None:
+            raise StructureError("Дерево пустое.")
+        self.start_operation()
+        marks = {}
+        h = self._height_steps(self.root, marks)
+        self.add_step(f"Высота дерева h = {h}", dict(marks))
+        return h
+
+    def _height_steps(self, node, marks):
+        if node is None:
+            return -1
+        left = self._height_steps(node.left, marks)
+        right = self._height_steps(node.right, marks)
+        self.ops += 1
+        h = 1 + max(left, right)
+        marks[node.key] = CURRENT
+        self.add_step(f"Узел {node.key}: 1 + max({left}, {right}) = {h}", dict(marks))
+        marks[node.key] = VISITED
+        return h
+
+    def count_leaves(self):
+        """Подсчёт листьев (узлов без потомков) — обход всех узлов, O(n)."""
+        if self.root is None:
+            raise StructureError("Дерево пустое.")
+        self.start_operation()
+        marks = {}
+        leaves = []
+        stack = [self.root]          # обход с помощью явного стека
+        while stack:
+            node = stack.pop()
+            self.ops += 1
+            if node.left is None and node.right is None:
+                leaves.append(node.key)
+                marks[node.key] = FOUND
+                self.add_step(f"Узел {node.key} — лист (нет потомков). Листьев: {len(leaves)}",
+                              dict(marks))
+            else:
+                marks[node.key] = VISITED
+                self.add_step(f"Узел {node.key} — внутренний, проверяем его потомков", dict(marks))
+            # правого кладём первым, чтобы левый был извлечён раньше
+            for child in (node.right, node.left):
+                if child is not None:
+                    stack.append(child)
+        self.add_step(f"Листьев: {len(leaves)} ({', '.join(map(str, leaves))})", dict(marks))
+        return leaves

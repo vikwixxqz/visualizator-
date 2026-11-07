@@ -516,7 +516,21 @@ class BSTPanel(BasePanel):
         self.add_button(g, "Вставить ключ — O(h)", self.on_insert)
         self.add_button(g, "Найти ключ — O(h)", self.on_search)
         self.add_button(g, "Удалить ключ — O(h)", self.on_delete)
-        self.add_button(g, "Симметричный обход — O(n)", self.on_inorder)
+
+        g = self.add_group("Обходы дерева")
+        self.add_button(g, "Прямой (pre-order) — O(n)",
+                        lambda: self.on_traverse("pre", "Прямой обход (pre-order)", "bst_preorder"))
+        self.add_button(g, "Симметричный (in-order) — O(n)",
+                        lambda: self.on_traverse("in", "Симметричный обход (in-order)", "bst_inorder"))
+        self.add_button(g, "Обратный (post-order) — O(n)",
+                        lambda: self.on_traverse("post", "Обратный обход (post-order)", "bst_postorder"))
+        self.add_button(g, "По уровням (в ширину) — O(n)", self.on_level_order)
+
+        g = self.add_group("Характеристики")
+        self.add_button(g, "Минимальный ключ — O(h)", self.on_min)
+        self.add_button(g, "Максимальный ключ — O(h)", self.on_max)
+        self.add_button(g, "Высота дерева — O(n)", self.on_height)
+        self.add_button(g, "Количество листьев — O(n)", self.on_leaves)
         self.box.addStretch()
 
     def draw_state(self, state, marks):
@@ -557,9 +571,29 @@ class BSTPanel(BasePanel):
         self.report("Удаление из BST", "bst_delete", sizes, f"ключ {key}",
                     "удалён" if deleted else "не найден")
 
-    def on_inorder(self):
-        if self.structure.root is None:
-            raise InputError("Дерево пустое — обходить нечего.")
-        result = self.structure.inorder()
-        self.report("Симметричный обход (in-order)", "bst_inorder", self.sizes(), "—",
+    def on_traverse(self, order, algorithm, key):
+        """Один обработчик для трёх обходов в глубину."""
+        result = self.structure.traverse(order)
+        self.report(algorithm, key, self.sizes(), "—", ", ".join(map(str, result)))
+
+    def on_level_order(self):
+        result = self.structure.level_order()
+        self.report("Обход по уровням (level-order)", "bst_levelorder", self.sizes(), "—",
                     ", ".join(map(str, result)))
+
+    def on_min(self):
+        value = self.structure.find_min()
+        self.report("Поиск минимума", "bst_min", self.sizes(), "—", f"минимум = {value}")
+
+    def on_max(self):
+        value = self.structure.find_max()
+        self.report("Поиск максимума", "bst_max", self.sizes(), "—", f"максимум = {value}")
+
+    def on_height(self):
+        h = self.structure.compute_height()
+        self.report("Вычисление высоты", "bst_height", self.sizes(), "—", f"высота h = {h}")
+
+    def on_leaves(self):
+        leaves = self.structure.count_leaves()
+        self.report("Подсчёт листьев", "bst_leaves", self.sizes(), "—",
+                    f"листьев {len(leaves)}: {', '.join(map(str, leaves))}")

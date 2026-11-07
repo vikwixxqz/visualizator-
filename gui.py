@@ -87,13 +87,15 @@ class MainWindow(QMainWindow):
         scroll = QScrollArea()          # прокрутка, если форма не влезает
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.stack)
+        # прокрутка только по вертикали — горизонтальная полоса не нужна
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         left = QWidget()
         left_layout = QVBoxLayout(left)
         left_layout.addWidget(QLabel("<b>Структуры данных</b>"))
         left_layout.addWidget(self.structure_list)
         left_layout.addWidget(scroll)
-        left.setMinimumWidth(330)
+        left.setMinimumWidth(370)
         left.setMaximumWidth(420)
 
         # --- центр: холст + строка с текущим шагом ---
@@ -147,7 +149,7 @@ class MainWindow(QMainWindow):
         main_splitter = QSplitter(Qt.Horizontal)
         main_splitter.addWidget(left)
         main_splitter.addWidget(right)
-        main_splitter.setSizes([340, 960])
+        main_splitter.setSizes([380, 920])
         self.setCentralWidget(main_splitter)
 
     def create_legend(self):
