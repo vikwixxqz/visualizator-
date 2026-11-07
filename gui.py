@@ -19,9 +19,10 @@ import os
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor, QFont, QPainter
 from PyQt5.QtWidgets import (QAction, QActionGroup, QDialog, QFileDialog, QGraphicsScene,
-                             QGraphicsView, QGroupBox, QHBoxLayout, QLabel, QListWidget,
+                             QGraphicsView, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QListWidget,
                              QMainWindow, QMessageBox, QPlainTextEdit, QScrollArea, QSlider,
-                             QSplitter, QStackedWidget, QVBoxLayout, QWidget)
+                             QSplitter, QStackedWidget, QTableWidget, QTableWidgetItem,
+                             QVBoxLayout, QWidget)
 
 import complexity
 from drawer import COLORS, Drawer
@@ -460,12 +461,44 @@ class MainWindow(QMainWindow):
                                 "<br><br>Кодировка файлов — UTF-8. Примеры лежат в папке examples.")
 
     def show_complexity_table(self):
-        rows = "".join(f"<tr><td>{key}</td><td><b>{o}</b></td><td>{text}</td></tr>"
-                       for key, (o, text) in complexity.COMPLEXITY.items())
-        box = QMessageBox(self)
-        box.setWindowTitle("Таблица сложности операций")
-        box.setText(f"<table border='1' cellpadding='3'>{rows}</table>")
-        box.exec_()
+        """Окно со сводной таблицей сложности всех операций.
+
+        Строк много (около 40), поэтому используется QTableWidget —
+        у него есть прокрутка, в отличие от обычного QMessageBox.
+        """
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Таблица сложности операций")
+        dialog.resize(1100, 650)
+        layout = QVBoxLayout(dialog)
+
+        keys = list(complexity.COMPLEXITY.keys())
+        table = QTableWidget(len(keys), 4)
+        table.setHorizontalHeaderLabels(["Структура", "Операция", "Сложность", "Пояснение"])
+        table.setEditTriggers(QTableWidget.NoEditTriggers)   # только для чтения
+        table.verticalHeader().setVisible(False)
+        table.setWordWrap(True)
+        bold = QFont()
+        bold.setBold(True)
+        for row, key in enumerate(keys):
+            notation, explanation = complexity.COMPLEXITY[key]
+            structure, operation = complexity.OPERATION_NAMES[key]
+            values = [structure, operation, notation, explanation]
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if column == 2:
+                    item.setFont(bold)
+                    item.setTextAlignment(Qt.AlignCenter)
+                table.setItem(row, column, item)
+        # первые три столбца — по ширине текста, пояснение занимает остаток
+        # ширины и переносится на новые строки
+        header = table.horizontalHeader()
+        for column in range(3):
+            header.setSectionResizeMode(column, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.Stretch)
+        layout.addWidget(table)
+        dialog.show()
+        table.resizeRowsToContents()   # высота строк — после того, как известна ширина
+        dialog.exec_()
 
     def show_about(self):
         QMessageBox.about(self, "О программе",
