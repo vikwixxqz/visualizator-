@@ -24,7 +24,6 @@ from PyQt5.QtWidgets import (QAction, QActionGroup, QDialog, QFileDialog, QGraph
                              QSplitter, QStackedWidget, QVBoxLayout, QWidget)
 
 import complexity
-from experiment import ExperimentDialog
 from drawer import COLORS, Drawer
 from input_parser import InputError, read_text_file
 from logger import SessionLogger
@@ -203,10 +202,6 @@ class MainWindow(QMainWindow):
         self.act_random.setShortcut("Ctrl+G")
         self.act_random.triggered.connect(lambda: self.execute(self.current_panel().fill_random))
 
-        self.act_experiment = QAction("Эксперимент со сложностью…", self)
-        self.act_experiment.setShortcut("Ctrl+E")
-        self.act_experiment.triggered.connect(self.show_experiment)
-
         self.act_reset = QAction("Очистить структуру", self)
         self.act_reset.setShortcut("Ctrl+R")
         self.act_reset.triggered.connect(self.reset_structure)
@@ -240,10 +235,6 @@ class MainWindow(QMainWindow):
         struct_menu.addAction(self.act_random)
         struct_menu.addAction(self.act_reset)
 
-        analysis_menu = menu.addMenu("Анализ")
-        analysis_menu.addAction(self.act_experiment)
-        analysis_menu.addAction("Таблица сложности", self.show_complexity_table)
-
         anim_menu = menu.addMenu("Анимация")
         anim_menu.addAction(self.act_pause)
         anim_menu.addAction(self.act_step)
@@ -251,6 +242,7 @@ class MainWindow(QMainWindow):
 
         help_menu = menu.addMenu("Справка")
         help_menu.addAction("Форматы входных файлов", self.show_formats)
+        help_menu.addAction("Таблица сложности", self.show_complexity_table)
         help_menu.addAction("О программе", self.show_about)
 
     def create_toolbar(self):
@@ -262,8 +254,6 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
         for action in (self.act_pause, self.act_step, self.act_finish, self.act_reset):
             toolbar.addAction(action)
-        toolbar.addSeparator()
-        toolbar.addAction(self.act_experiment)
         # регулятор скорости — на отдельной строке панели инструментов
         self.addToolBarBreak()
         toolbar = self.addToolBar("Скорость анимации")
@@ -461,12 +451,6 @@ class MainWindow(QMainWindow):
         text.setFont(QFont("Courier New", 10))
         layout.addWidget(text)
         text.moveCursor(text.textCursor().End)   # прокрутка к последним записям
-        dialog.exec_()
-
-    def show_experiment(self):
-        """Окно экспериментальной проверки сложности (experiment.py)."""
-        self.stop_animation()
-        dialog = ExperimentDialog(self, self.logger)
         dialog.exec_()
 
     def show_formats(self):
