@@ -31,6 +31,16 @@ python main.py
 
 (В Linux/macOS может понадобиться `python3 main.py`.)
 
+### Если программа не запускается
+
+* **`Could not find the Qt platform plugin "windows"`** — Qt не нашёл свои плагины.
+  Обычно так бывает, если в пути к Python есть русские буквы (`C:\Users\Вика\...`).
+  В `main.py` есть функция `fix_qt_plugin_path()`, которая указывает Qt нужную папку вручную.
+  Если ошибка осталась, переустановите PyQt5:
+  `python -m pip install --force-reinstall PyQt5 PyQt5-Qt5 PyQt5-sip`
+* **`pip` не найден / предупреждение «Scripts is not on PATH»** — вызывайте pip через Python:
+  `python -m pip install PyQt5`.
+
 ## 2. Как пользоваться
 
 1. Слева выберите структуру (или пункт меню **Структура**, горячие клавиши `Ctrl+1` … `Ctrl+6`).
