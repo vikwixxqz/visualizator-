@@ -12,6 +12,8 @@ structures.py): по нажатию кнопки она читает и пров
 а классы-наследники отличаются только своими полями и кнопками.
 """
 
+import random
+
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QGroupBox, QHBoxLayout, QLabel,
                              QLineEdit, QPlainTextEdit, QPushButton, QRadioButton,
@@ -101,6 +103,25 @@ class BasePanel(QWidget):
         self.source = f"файл {file_name}"
         try:
             self.load_from_text(text)
+        finally:
+            self.source = "клавиатура"
+
+    # сколько случайных элементов генерировать (наследники могут изменить)
+    random_count = 7
+
+    def fill_random(self):
+        """Заполнить структуру случайными данными.
+
+        random.sample(range(1, 100), k) выбирает k РАЗНЫХ чисел от 1 до 99 —
+        это важно для дерева поиска, где повторы не добавляются.
+        Сгенерированные числа подставляются в поле ввода, а дальше
+        работает обычное построение — как при ручном вводе.
+        """
+        values = random.sample(range(1, 100), self.random_count)
+        self.seq_edit.setText(" ".join(map(str, values)))
+        self.source = "случайная генерация"
+        try:
+            self.on_build()
         finally:
             self.source = "клавиатура"
 
@@ -433,6 +454,32 @@ class GraphPanel(BasePanel):
         self.editor.setPlainText(text.strip())
         self.on_build()
 
+    def fill_random(self):
+        """Случайный неориентированный граф из 5–8 вершин.
+
+        Для каждой пары вершин i < j «подбрасываем монетку» с вероятностью
+        0.35 и ставим 1 сразу в ячейки [i][j] и [j][i] — так матрица
+        получается симметричной. Чтобы граф был связным, дополнительно
+        соединяем каждую вершину со случайной из предыдущих.
+        """
+        n = random.randint(5, 8)
+        matrix = [[0] * n for _ in range(n)]
+        for i in range(n):
+            for j in range(i + 1, n):
+                if random.random() < 0.35:
+                    matrix[i][j] = matrix[j][i] = 1
+        for i in range(1, n):
+            j = random.randrange(i)
+            matrix[i][j] = matrix[j][i] = 1
+        self.radio_matrix.setChecked(True)
+        self.count_spin.setValue(n)
+        self.editor.setPlainText(f"{n}\n" + "\n".join(" ".join(map(str, row)) for row in matrix))
+        self.source = "случайная генерация"
+        try:
+            self.on_build()
+        finally:
+            self.source = "клавиатура"
+
     def on_template(self):
         """Заготовка для ввода с клавиатуры: нулевая матрица или пустой список."""
         n = self.count_spin.value()
@@ -503,6 +550,7 @@ class GraphPanel(BasePanel):
 class BSTPanel(BasePanel):
     title = "Бинарное дерево поиска"
     file_hint = "последовательность целых чисел через пробел, запятую или с новой строки — ключи вставляются по порядку."
+    random_count = 10
 
     def __init__(self, main_window):
         super().__init__(main_window, BSTStructure())

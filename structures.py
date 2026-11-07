@@ -62,6 +62,11 @@ class BaseStructure:
     def __init__(self):
         self.steps = []   # шаги последней выполненной операции
         self.ops = 0      # число элементарных операций в последней операции
+        # Записывать ли шаги анимации. В режиме «Эксперимент» (experiment.py)
+        # структуры содержат тысячи элементов: снимки на каждом шаге заняли бы
+        # слишком много памяти и времени, поэтому там запись отключается
+        # и считается только число операций ops.
+        self.record_steps = True
 
     def start_operation(self):
         """Вызывается в начале каждой операции: очищает шаги и счётчик."""
@@ -74,6 +79,8 @@ class BaseStructure:
 
     def add_step(self, text, marks=None):
         """Сохранить шаг: текст + снимок состояния + подсветка."""
+        if not self.record_steps:
+            return
         self.steps.append(Step(text, self.snapshot(), marks))
 
 
