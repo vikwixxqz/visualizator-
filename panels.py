@@ -524,7 +524,6 @@ class BSTPanel(BasePanel):
                         lambda: self.on_traverse("in", "Симметричный обход (in-order)", "bst_inorder"))
         self.add_button(g, "Обратный (post-order) — O(n)",
                         lambda: self.on_traverse("post", "Обратный обход (post-order)", "bst_postorder"))
-        self.add_button(g, "По уровням (в ширину) — O(n)", self.on_level_order)
 
         g = self.add_group("Характеристики")
         self.add_button(g, "Минимальный ключ — O(h)", self.on_min)
@@ -575,11 +574,6 @@ class BSTPanel(BasePanel):
         """Один обработчик для трёх обходов в глубину."""
         result = self.structure.traverse(order)
         self.report(algorithm, key, self.sizes(), "—", ", ".join(map(str, result)))
-
-    def on_level_order(self):
-        result = self.structure.level_order()
-        self.report("Обход по уровням (level-order)", "bst_levelorder", self.sizes(), "—",
-                    ", ".join(map(str, result)))
 
     def on_min(self):
         value = self.structure.find_min()

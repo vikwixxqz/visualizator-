@@ -941,35 +941,6 @@ class BSTStructure(BaseStructure):
         self.add_step(f"Посещаем {node.key}. Результат: {', '.join(map(str, result))}", dict(marks))
         marks[node.key] = VISITED
 
-    def level_order(self):
-        """Обход в ширину (по уровням): сначала корень, затем все узлы
-        глубины 1 слева направо, затем глубины 2 и т.д.
-        Используется очередь, как в BFS для графа. O(n)."""
-        if self.root is None:
-            raise StructureError("Дерево пустое — обходить нечего.")
-        self.start_operation()
-        result = []
-        marks = {}
-        queue = deque([self.root])
-        self.add_step(f"Кладём корень {self.root.key} в очередь")
-        while queue:
-            node = queue.popleft()
-            result.append(node.key)
-            self.ops += 1
-            marks[node.key] = CURRENT
-            # потомков ставим в конец очереди: они будут обработаны
-            # только после всех узлов текущего уровня
-            for child in (node.left, node.right):
-                if child is not None:
-                    queue.append(child)
-                    marks[child.key] = NEW
-            waiting = ", ".join(str(n.key) for n in queue) or "пусто"
-            self.add_step(f"Извлекаем {node.key}, его потомки — в очередь. Очередь: [{waiting}]",
-                          dict(marks))
-            marks[node.key] = VISITED
-        self.add_step("Обход по уровням завершён: " + ", ".join(map(str, result)), dict(marks))
-        return result
-
     # ------------------------------------------------------------------
     # Характеристики дерева
     # ------------------------------------------------------------------
