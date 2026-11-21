@@ -16,15 +16,16 @@ gui.py — главное окно программы.
 
 import os
 
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import QSize, Qt, QTimer
 from PyQt5.QtGui import QColor, QFont, QPainter
 from PyQt5.QtWidgets import (QAction, QActionGroup, QDialog, QFileDialog, QGraphicsScene,
-                             QGraphicsView, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QListWidget,
-                             QMainWindow, QMessageBox, QPlainTextEdit, QScrollArea, QSlider,
-                             QSplitter, QStackedWidget, QTableWidget, QTableWidgetItem,
-                             QVBoxLayout, QWidget)
+                             QGraphicsView, QGroupBox, QHBoxLayout, QHeaderView, QLabel,
+                             QListWidget, QListWidgetItem, QMainWindow, QMessageBox,
+                             QPlainTextEdit, QScrollArea, QSlider, QSplitter, QStackedWidget,
+                             QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 import complexity
+import icons
 from drawer import COLORS, Drawer
 from input_parser import InputError, read_text_file
 from logger import SessionLogger
@@ -76,12 +77,21 @@ class MainWindow(QMainWindow):
         # --- левая часть: список структур + формы ---
         self.panels = [ArrayPanel(self), StackPanel(self), QueuePanel(self),
                        LinkedListPanel(self), GraphPanel(self), BSTPanel(self)]
+        # боковое меню структур — сетка иконок с короткими подписями
+        # (режим IconMode у QListWidget раскладывает элементы плиткой)
         self.structure_list = QListWidget()
-        self.structure_list.setFont(QFont("Arial", 11))
-        self.structure_list.setMaximumHeight(150)
+        self.structure_list.setViewMode(QListWidget.IconMode)
+        self.structure_list.setIconSize(QSize(44, 44))
+        self.structure_list.setGridSize(QSize(104, 78))
+        self.structure_list.setMovement(QListWidget.Static)     # плитки нельзя перетаскивать
+        self.structure_list.setResizeMode(QListWidget.Adjust)   # перестраивать при изменении ширины
+        self.structure_list.setFixedHeight(170)
+        short_names = ["Массив", "Стек", "Очередь", "Список", "Граф", "Дерево"]
         self.stack = QStackedWidget()   # показывает одну панель из нескольких
-        for panel in self.panels:
-            self.structure_list.addItem(panel.title)
+        for panel, name, make_icon in zip(self.panels, short_names, icons.STRUCTURE_ICONS):
+            item = QListWidgetItem(make_icon(), name)
+            item.setToolTip(panel.title)          # полное название — во всплывающей подсказке
+            self.structure_list.addItem(item)
             self.stack.addWidget(panel)
         self.structure_list.currentRowChanged.connect(self.switch_structure)
 
@@ -104,6 +114,7 @@ class MainWindow(QMainWindow):
         canvas_layout = QVBoxLayout(canvas)
         canvas_layout.setContentsMargins(0, 0, 0, 0)
         canvas_layout.addWidget(self.view)
+        canvas_layout.addWidget(self.create_legend())   # легенда цветов — прямо под рисунком
         self.step_label = QLabel("Выберите структуру и выполните операцию")
         self.step_label.setFont(QFont("Arial", 12))
         self.step_label.setWordWrap(True)
@@ -112,7 +123,17 @@ class MainWindow(QMainWindow):
 
         # --- низ: анализ сложности + история шагов ---
         info_group = QGroupBox("Анализ сложности")
-        info_layout = QVBoxLayout(info_group)
+        # Содержимое панели кладём в область с прокруткой: на небольших
+        # экранах длинные пояснения не помещаются по высоте, и без прокрутки
+        # строки начинали бы наезжать друг на друга.
+        info_content = QWidget()
+        info_layout = QVBoxLayout(info_content)
+        info_scroll = QScrollArea()
+        info_scroll.setWidgetResizable(True)
+        info_scroll.setFrameShape(QScrollArea.NoFrame)
+        info_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        info_scroll.setWidget(info_content)
+        QVBoxLayout(info_group).addWidget(info_scroll)
         self.lbl_algorithm = QLabel("Алгоритм: —")
         self.lbl_complexity = QLabel("O(…)")
         self.lbl_complexity.setFont(QFont("Arial", 20, QFont.Bold))
@@ -127,7 +148,6 @@ class MainWindow(QMainWindow):
         info_layout.addWidget(self.lbl_estimate)
         info_layout.addWidget(self.lbl_ops)
         info_layout.addWidget(self.lbl_explain)
-        info_layout.addWidget(self.create_legend())
         info_layout.addStretch()
 
         history_group = QGroupBox("История шагов и операций")
@@ -140,7 +160,7 @@ class MainWindow(QMainWindow):
         bottom = QSplitter(Qt.Horizontal)
         bottom.addWidget(info_group)
         bottom.addWidget(history_group)
-        bottom.setSizes([450, 550])
+        bottom.setSizes([540, 460])
 
         right = QSplitter(Qt.Vertical)
         right.addWidget(canvas)
@@ -157,9 +177,10 @@ class MainWindow(QMainWindow):
         """Легенда цветов подсветки."""
         legend = QWidget()
         layout = QHBoxLayout(legend)
-        layout.setContentsMargins(0, 6, 0, 0)
-        names = [(CURRENT, "текущий"), (NEW, "добавлен"), (DELETE, "удаляется"),
-                 (FOUND, "найден"), (VISITED, "посещён")]
+        layout.setContentsMargins(6, 4, 6, 4)
+        layout.addWidget(QLabel("Цвета подсветки:"))
+        names = [(CURRENT, "текущий"), (NEW, "добавленный"), (DELETE, "удаляемый"),
+                 (FOUND, "найденный"), (VISITED, "посещённый")]
         for key, caption in names:
             label = QLabel(caption)
             label.setStyleSheet(f"background: {COLORS[key]}; color: black; "
@@ -170,42 +191,55 @@ class MainWindow(QMainWindow):
 
     def create_actions(self):
         """Действия (QAction) используются и в меню, и на панели инструментов."""
-        self.act_open = QAction("Загрузить из файла…", self)
+        self.act_open = QAction(icons.open_icon(), "Загрузить из файла…", self)
         self.act_open.setShortcut("Ctrl+O")
         self.act_open.triggered.connect(lambda: self.execute(self.open_file))
 
-        self.act_save_image = QAction("Сохранить изображение…", self)
+        self.act_save_image = QAction(icons.save_icon(), "Сохранить изображение…", self)
         self.act_save_image.setShortcut("Ctrl+S")
         self.act_save_image.triggered.connect(self.save_image)
 
-        self.act_log = QAction("Журнал сеанса", self)
+        self.act_log = QAction(icons.log_icon(), "Журнал сеанса", self)
         self.act_log.setShortcut("Ctrl+L")
         self.act_log.triggered.connect(self.show_log)
 
-        self.act_exit = QAction("Выход", self)
+        self.act_exit = QAction(icons.exit_icon(), "Выход", self)
         self.act_exit.setShortcut("Ctrl+Q")
         self.act_exit.triggered.connect(self.close)
 
-        self.act_pause = QAction("Пауза", self)
+        self.act_pause = QAction(icons.pause_icon(), "Пауза", self)
         self.act_pause.setCheckable(True)      # кнопка-переключатель
         self.act_pause.setShortcut("Space")
         self.act_pause.toggled.connect(self.toggle_pause)
 
-        self.act_step = QAction("Следующий шаг", self)
+        self.act_step = QAction(icons.step_icon(), "Следующий шаг", self)
         self.act_step.setShortcut("Right")
         self.act_step.triggered.connect(self.manual_step)
 
-        self.act_finish = QAction("Показать результат", self)
+        self.act_finish = QAction(icons.finish_icon(), "Показать результат", self)
         self.act_finish.setShortcut("End")
         self.act_finish.triggered.connect(self.finish_animation)
 
-        self.act_random = QAction("Случайные данные", self)
+        self.act_random = QAction(icons.random_icon(), "Случайные данные", self)
         self.act_random.setShortcut("Ctrl+G")
         self.act_random.triggered.connect(lambda: self.execute(self.current_panel().fill_random))
 
-        self.act_reset = QAction("Очистить структуру", self)
+        self.act_reset = QAction(icons.reset_icon(), "Очистить структуру", self)
         self.act_reset.setShortcut("Ctrl+R")
         self.act_reset.triggered.connect(self.reset_structure)
+
+        # На панели инструментов видны только иконки, поэтому в подсказку,
+        # которая появляется при наведении мыши, пишем название и горячую клавишу
+        for action in (self.act_open, self.act_save_image, self.act_log, self.act_pause,
+                       self.act_step, self.act_finish, self.act_random, self.act_reset):
+            self.set_tooltip(action)
+
+    @staticmethod
+    def set_tooltip(action):
+        """Подсказка вида «Загрузить из файла (Ctrl+O)»."""
+        text = action.text().rstrip("…")
+        shortcut = action.shortcut().toString()
+        action.setToolTip(f"{text} ({shortcut})" if shortcut else text)
 
     def create_menu(self):
         """Главное меню окна."""
@@ -225,7 +259,7 @@ class MainWindow(QMainWindow):
         self.structure_actions = []
         group = QActionGroup(self)
         for i, panel in enumerate(self.panels):
-            action = QAction(panel.title, self, checkable=True)
+            action = QAction(icons.STRUCTURE_ICONS[i](), panel.title, self, checkable=True)
             action.setShortcut(f"Ctrl+{i + 1}")
             # i=i — «запоминаем» текущее значение i для каждой лямбды
             action.triggered.connect(lambda checked, i=i: self.structure_list.setCurrentRow(i))
@@ -242,24 +276,24 @@ class MainWindow(QMainWindow):
         anim_menu.addAction(self.act_finish)
 
         help_menu = menu.addMenu("Справка")
-        help_menu.addAction("Форматы входных файлов", self.show_formats)
-        help_menu.addAction("Таблица сложности", self.show_complexity_table)
-        help_menu.addAction("О программе", self.show_about)
+        help_menu.addAction(icons.log_icon(), "Форматы входных файлов", self.show_formats)
+        help_menu.addAction(icons.table_icon(), "Таблица сложности", self.show_complexity_table)
+        help_menu.addAction(icons.help_icon(), "О программе", self.show_about)
 
     def create_toolbar(self):
         """Панель инструментов с основными действиями и скоростью анимации."""
         toolbar = self.addToolBar("Инструменты")
         toolbar.setMovable(False)
+        toolbar.setIconSize(QSize(28, 28))
+        toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)   # без подписей, только значки
         for action in (self.act_open, self.act_random, self.act_save_image, self.act_log):
             toolbar.addAction(action)
         toolbar.addSeparator()
         for action in (self.act_pause, self.act_step, self.act_finish, self.act_reset):
             toolbar.addAction(action)
-        # регулятор скорости — на отдельной строке панели инструментов
-        self.addToolBarBreak()
-        toolbar = self.addToolBar("Скорость анимации")
-        toolbar.setMovable(False)
-        toolbar.addWidget(QLabel("  Скорость анимации: медленно "))
+        # регулятор скорости — на той же панели, после разделителя
+        toolbar.addSeparator()
+        toolbar.addWidget(QLabel("  Скорость: медленно "))
         # слайдер задаёт «скорость», а задержку таймера считаем как 2100 - значение
         self.speed_slider = QSlider(Qt.Horizontal)
         self.speed_slider.setRange(100, 2000)
@@ -303,7 +337,7 @@ class MainWindow(QMainWindow):
         self.lbl_algorithm.setText(f"<b>{panel.title}</b>: {algorithm}")
         self.lbl_complexity.setText(notation)
         self.lbl_estimate.setText("Подстановка размеров: " + estimate)
-        self.lbl_ops.setText(f"Фактически выполнено элементарных операций: <b>{ops}</b>")
+        self.lbl_ops.setText(f"Выполнено операций (факт): <b>{ops}</b>")
         self.lbl_explain.setText("Почему так: " + explanation)
 
         self.logger.log_operation(panel.title, algorithm, input_data, result,
@@ -385,6 +419,8 @@ class MainWindow(QMainWindow):
 
     def toggle_pause(self, paused):
         self.act_pause.setText("Продолжить" if paused else "Пауза")
+        self.act_pause.setIcon(icons.play_icon() if paused else icons.pause_icon())
+        self.set_tooltip(self.act_pause)
         if paused:
             self.timer.stop()
         elif self.anim_panel is not None and self.anim_index < len(self.anim_steps):
